@@ -22,6 +22,26 @@ Structure obligatoire de la fiche (respecte exactement ces sections avec des tit
 
 Utilise **LaTeX** pour toutes les formules mathématiques : $$...$$ pour les formules en display et $...$ pour inline. Sois concret et directement utilisable en classe.`
 
+async function callGemini(
+  apiKey: string,
+  model: string,
+  text: string
+): Promise<{ text: string } | null> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+  const payload = {
+    contents: [{ parts: [{ text }] }],
+  }
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+  const result = await res.json()
+  const content = result?.candidates?.[0]?.content?.parts?.[0]?.text ?? null
+  if (content) return { text: content }
+  return null
+}
+
 export async function POST(request: NextRequest) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY
   if (!GEMINI_API_KEY) {
@@ -30,8 +50,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`
 
   try {
     const body = await request.json()
@@ -47,31 +65,19 @@ export async function POST(request: NextRequest) {
 
     const fullPrompt = `${FICHE_PROMPT}\n\n**Cours :** ${lesson}\n**Niveau :** ${level}`
 
-    const payload: { contents: Array<{ parts: Array<{ text: string }> }> } = {
-      contents: [{ parts: [{ text: fullPrompt }] }],
+    let out = await callGemini(GEMINI_API_KEY, "gemini-1.5-flash-latest", fullPrompt)
+    if (!out) {
+      out = await callGemini(GEMINI_API_KEY, "gemini-pro", fullPrompt)
     }
 
-    const res = await fetch(geminiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-
-    const result = await res.json()
-
-    const textContent =
-      result?.candidates?.[0]?.content?.parts?.[0]?.text ?? null
-
-    if (!textContent) {
-      console.error("Gemini API error:", result)
+    if (!out) {
       return NextResponse.json(
-        {
-          status: "error",
-          message: result?.error?.message ?? "Clé API invalide ou quota atteint",
-        },
+        { status: "error", message: "Clé API invalide, quota atteint ou modèle indisponible." },
         { status: 500 }
       )
     }
+
+    const textContent = out.text
 
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
