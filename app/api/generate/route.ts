@@ -9,23 +9,22 @@ const FICHE_PROMPT = `Tu es un expert en pédagogie et en mathématiques au Maro
 Structure obligatoire de la fiche (respecte exactement ces sections avec des titres en ##) :
 
 ## Objectifs
-- Lister 3 à 5 objectifs pédagogiques clairs et mesurables pour cette séance.
+- Lister 3 à 5 objectifs pédagogiques clairs et mesurables.
 
 ## Support
-- Décrire le matériel et les supports nécessaires (manuel, tableau, fiches, etc.).
+- Décrire le matériel nécessaire.
 
 ## Déroulement de la séance
-- Décrire les étapes de la séance (introduction, développement, activités, synthèse) avec des durées indicatives et des consignes précises pour l'enseignant.
+- Étapes, durées et consignes précises.
 
 ## Évaluation
-- Proposer des critères et des modalités d'évaluation (formative ou sommative) pour vérifier la maîtrise des objectifs.
+- Critères et modalités d'évaluation.
 
-Utilise **LaTeX** pour toutes les formules mathématiques : $$...$$ pour les formules en display et $...$ pour inline. Sois concret et directement utilisable en classe.`
+Utilise **LaTeX** pour toutes les formules : $$...$$ pour display et $...$ pour inline.`
 
-// v1beta is the stable choice for flash/pro models and generateContent.
-const GEMINI_API_VERSION = "v1beta"
+// تم التغيير إلى v1 لضمان الاستقرار
+const GEMINI_API_VERSION = "v1" 
 
-/** Returns { text } on success, or { error: string } with the API error message. */
 async function callGemini(
   apiKey: string,
   model: string,
@@ -35,37 +34,37 @@ async function callGemini(
   const payload = {
     contents: [{ parts: [{ text }] }],
   }
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-  const result = await res.json()
+  
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    
+    const result = await res.json()
 
-  const content = result?.candidates?.[0]?.content?.parts?.[0]?.text ?? null
-  if (content) return { text: content }
+    if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      return { text: result.candidates[0].content.parts[0].text }
+    }
 
-  const apiMessage =
-    result?.error?.message ??
-    (typeof result?.error === "string" ? result.error : null) ??
-    `HTTP ${res.status}`
-  return { error: apiMessage }
+    const apiMessage = result?.error?.message || `Error ${res.status}`
+    return { error: apiMessage }
+  } catch (err) {
+    return { error: "Network or Server Error" }
+  }
 }
 
+// حذفنا الموديلات القديمة التي تسبب 404
 const MODELS_TO_TRY = [
   "gemini-1.5-flash",
-  "gemini-1.5-flash-8b",
-  "gemini-1.5-pro",
-  "gemini-pro",
+  "gemini-1.5-pro"
 ]
 
 export async function POST(request: NextRequest) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY
   if (!GEMINI_API_KEY) {
-    return NextResponse.json(
-      { status: "error", message: "Gemini API key not configured" },
-      { status: 500 }
-    )
+    return NextResponse.json({ status: "error", message: "API key missing" }, { status: 500 })
   }
 
   try {
@@ -74,10 +73,7 @@ export async function POST(request: NextRequest) {
     const level = body?.level ?? ""
 
     if (!lesson) {
-      return NextResponse.json(
-        { status: "error", message: "Lesson name is required" },
-        { status: 400 }
-      )
+      return NextResponse.json({ status: "error", message: "Lesson required" }, { status: 400 })
     }
 
     const fullPrompt = `${FICHE_PROMPT}\n\n**Cours :** ${lesson}\n**Niveau :** ${level}`
@@ -88,38 +84,27 @@ export async function POST(request: NextRequest) {
       if ("text" in out) {
         const textContent = out.text
 
+        // حفظ في Supabase
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
           const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-          const { error: insertError } = await supabase.from("worksheets").insert({
+          await supabase.from("worksheets").insert({
             title: lesson,
             level,
             content: textContent,
             updated_at: new Date().toISOString(),
           })
-          if (insertError) {
-            console.error("Supabase insert error:", insertError)
-          }
         }
 
         return NextResponse.json({ status: "success", content: textContent })
       }
       lastError = out.error
-      console.warn(`Gemini model ${model} failed:`, lastError)
     }
 
     return NextResponse.json(
-      {
-        status: "error",
-        message: `Aucun modèle disponible. Dernière erreur : ${lastError}`,
-      },
+      { status: "error", message: `Erreur: ${lastError}` },
       { status: 500 }
     )
   } catch (e) {
-    console.error("Generate API error:", e)
-    const message = e instanceof Error ? e.message : "Server error"
-    return NextResponse.json(
-      { status: "error", message },
-      { status: 500 }
-    )
+    return NextResponse.json({ status: "error", message: "Server Error" }, { status: 500 })
   }
 }
