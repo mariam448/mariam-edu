@@ -7,18 +7,34 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { GraduationCap, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // Simulate login
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    router.push("/dashboard")
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        alert(error.message)
+        return
+      }
+
+      router.push("/dashboard")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -54,6 +70,8 @@ export default function LoginPage() {
                   placeholder="professeur@ecole.ma"
                   required
                   className="bg-background border-border"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -67,6 +85,8 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     required
                     className="bg-background border-border pr-10"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                   />
                   <button
                     type="button"

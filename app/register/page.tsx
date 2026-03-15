@@ -8,18 +8,70 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { GraduationCap, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
+
+function extractNameFromEmail(email: string): string {
+  const localPart = (email.split("@")[0] || "").trim()
+  if (!localPart) return "Utilisateur"
+
+  const cleaned = localPart.replace(/[.\-_]+/g, " ")
+  const words = cleaned
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+
+  return words.length ? words.join(" ") : "Utilisateur"
+}
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // Simulate registration
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    router.push("/dashboard")
+
+    try {
+      const fullName = extractNameFromEmail(email)
+      console.log("[Register] extractNameFromEmail:", email, "=>", fullName)
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+
+      if (error) {
+        // Si l'utilisateur existe déjà, on ne crée pas de doublon, on s'arrête avec un message clair.
+        alert(error.message)
+        return
+      }
+
+      const user = data?.user
+      if (user) {
+        // Upsert dans la table profiles (évite les doublons si le profil existe déjà)
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .upsert(
+            {
+              id: user.id,
+              full_name: fullName,
+              email,
+            },
+            { onConflict: "id" }
+          )
+
+        if (profileError) {
+          console.error("[Register] Supabase profiles upsert error:", profileError)
+        }
+      }
+
+      router.push("/dashboard")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -79,6 +131,8 @@ export default function RegisterPage() {
                   placeholder="professeur@ecole.ma"
                   required
                   className="bg-background border-border"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -121,6 +175,8 @@ export default function RegisterPage() {
                     placeholder="••••••••"
                     required
                     className="bg-background border-border pr-10"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                   />
                   <button
                     type="button"
