@@ -26,12 +26,14 @@ async function callGemini(
   model: string,
   text: string
 ): Promise<{ text: string } | { error: string }> {
-  const url = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${model}:generateContent?key=${apiKey}`
+  const url = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${model}:generateText?key=${apiKey}`
   const payload = {
-    contents: [{ parts: [{ text }] }],
+    prompt: { text },
+    // Optional: set maxOutputTokens or temperature here if desired
   }
 
   console.log("[Gemini] Calling model:", model, "URL:", url)
+  console.log("[Gemini] Payload:", payload)
 
   try {
     const res = await fetch(url, {
@@ -48,12 +50,17 @@ async function callGemini(
       JSON.stringify(result).slice(0, 500)
     )
 
-    if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      return { text: result.candidates[0].content.parts[0].text }
+    // Google Generative Language API v1 uses `candidates[0].output`.
+    const candidateOutput =
+      result?.candidates?.[0]?.output ??
+      result?.candidates?.[0]?.content?.parts?.[0]?.text
+
+    if (candidateOutput) {
+      return { text: candidateOutput }
     }
 
     const apiMessage =
-      result?.error?.message || `Error ${res.status}`
+      result?.error?.message || result?.error || `Error ${res.status}`
     return { error: apiMessage }
   } catch (err) {
     console.error("[Gemini] Network or server error:", err)
@@ -87,12 +94,26 @@ export async function POST(request: NextRequest) {
     const fullPrompt = `${FICHE_PROMPT}\n\n**Cours :** ${lesson}\n**Niveau :** ${level}`
     console.log("[API /api/generate] Built prompt length:", fullPrompt.length)
 
-    const out = await callGemini(GEMINI_API_KEY, "gemini-1.5-flash", fullPrompt)
+    const modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro"]
+
+    let usedModel = modelsToTry[0]
+    let out = await callGemini(GEMINI_API_KEY, usedModel, fullPrompt)
+
+    if ("error" in out && /not found|not supported/i.test(out.error)) {
+      usedModel = modelsToTry[1]
+      console.warn(
+        "[API /api/generate] Model not available, trying fallback model",
+        usedModel,
+        "(original error:", out.error, ")"
+      )
+      out = await callGemini(GEMINI_API_KEY, usedModel, fullPrompt)
+    }
+
     if ("text" in out) {
       const textContent = out.text
       console.log(
         "[API /api/generate] Success with model",
-        "gemini-1.5-flash",
+        usedModel,
         "content length:",
         textContent.length
       )
