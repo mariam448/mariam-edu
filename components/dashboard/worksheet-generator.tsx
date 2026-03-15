@@ -89,20 +89,37 @@ export function WorksheetGenerator() {
   if (!selectedLevel || !courseName.trim()) return;
   setIsGenerating(true);
 
+  const payload = {
+    lesson: courseName,
+    level: selectedLevel,
+  };
+
   try {
+    console.log("[WorksheetGenerator] Sending request to /api/generate with body:", payload);
+
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        lesson: courseName,
-        level: selectedLevel,
-      }),
+      body: JSON.stringify(payload),
     });
 
-    const data = await response.json();
+    console.log("[WorksheetGenerator] Response status:", response.status);
+
+    let data: any = null;
+    try {
+      data = await response.json();
+      console.log("[WorksheetGenerator] Response JSON:", data);
+    } catch (parseError) {
+      console.error("[WorksheetGenerator] Failed to parse JSON response:", parseError);
+    }
+
+    if (!response.ok || !data) {
+      const message = data?.message || `HTTP ${response.status}`;
+      alert(`Erreur API (frontend): ${message}`);
+      return;
+    }
 
     if (data.status === "success") {
-      // إذا نجح الـ API، سيتم تحديث الواجهة
       setWorksheet({
         title: courseName,
         level: selectedLevel,
@@ -111,11 +128,11 @@ export function WorksheetGenerator() {
         exercises: [],
       });
     } else {
-      // سيظهر لكِ تنبيه بالخطأ القادم من السيرفر
-      alert("خطأ من الـ API: " + data.message);
+      alert(`Erreur API (backend): ${data.message || "Inconnue"}`);
     }
   } catch (err) {
-    alert("فشل الاتصال بالسيرفر. تأكدي من أن الموقع مرفوع على Vercel.");
+    console.error("[WorksheetGenerator] Fetch error:", err);
+    alert("Erreur réseau ou serveur. Vérifie la console du navigateur pour plus de détails.");
   } finally {
     setIsGenerating(false);
   }

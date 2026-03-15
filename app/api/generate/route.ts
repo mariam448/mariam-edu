@@ -34,23 +34,33 @@ async function callGemini(
   const payload = {
     contents: [{ parts: [{ text }] }],
   }
-  
+
+  console.log("[Gemini] Calling model:", model, "URL:", url)
+
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
-    
+
     const result = await res.json()
+    console.log(
+      "[Gemini] Raw response for model",
+      model,
+      ":",
+      JSON.stringify(result).slice(0, 500)
+    )
 
     if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
       return { text: result.candidates[0].content.parts[0].text }
     }
 
-    const apiMessage = result?.error?.message || `Error ${res.status}`
+    const apiMessage =
+      result?.error?.message || `Error ${res.status}`
     return { error: apiMessage }
   } catch (err) {
+    console.error("[Gemini] Network or server error:", err)
     return { error: "Network or Server Error" }
   }
 }
@@ -64,47 +74,72 @@ const MODELS_TO_TRY = [
 export async function POST(request: NextRequest) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY
   if (!GEMINI_API_KEY) {
-    return NextResponse.json({ status: "error", message: "API key missing" }, { status: 500 })
+    console.error("[API /api/generate] Missing GEMINI_API_KEY")
+    return NextResponse.json(
+      { status: "error", message: "Gemini API key not configured" },
+      { status: 500 }
+    )
   }
 
   try {
     const body = await request.json()
+    console.log("[API /api/generate] Incoming body:", body)
     const lesson = (body?.lesson ?? "").trim()
     const level = body?.level ?? ""
 
     if (!lesson) {
-      return NextResponse.json({ status: "error", message: "Lesson required" }, { status: 400 })
+      return NextResponse.json(
+        { status: "error", message: "Lesson name is required" },
+        { status: 400 }
+      )
     }
 
     const fullPrompt = `${FICHE_PROMPT}\n\n**Cours :** ${lesson}\n**Niveau :** ${level}`
+    console.log("[API /api/generate] Built prompt length:", fullPrompt.length)
 
     let lastError = ""
     for (const model of MODELS_TO_TRY) {
       const out = await callGemini(GEMINI_API_KEY, model, fullPrompt)
       if ("text" in out) {
         const textContent = out.text
+        console.log(
+          "[API /api/generate] Success with model",
+          model,
+          "content length:",
+          textContent.length
+        )
 
-        // حفظ في Supabase
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
           const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-          await supabase.from("worksheets").insert({
+          const { error: insertError } = await supabase.from("worksheets").insert({
             title: lesson,
             level,
             content: textContent,
             updated_at: new Date().toISOString(),
           })
+          if (insertError) {
+            console.error("Supabase insert error:", insertError)
+          }
         }
 
         return NextResponse.json({ status: "success", content: textContent })
       }
       lastError = out.error
+      console.warn("[API /api/generate] Gemini model failed:", model, "error:", lastError)
     }
 
     return NextResponse.json(
-      { status: "error", message: `Erreur: ${lastError}` },
+      {
+        status: "error",
+        message: `Erreur: ${lastError}`,
+      },
       { status: 500 }
     )
   } catch (e) {
-    return NextResponse.json({ status: "error", message: "Server Error" }, { status: 500 })
+    console.error("[API /api/generate] Unhandled server error:", e)
+    return NextResponse.json(
+      { status: "error", message: "Server Error" },
+      { status: 500 }
+    )
   }
 }
