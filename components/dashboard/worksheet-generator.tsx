@@ -89,7 +89,10 @@ export function WorksheetGenerator() {
 
     setIsGenerating(true);
 
-    const apiUrl = "http://127.0.0.1:5000/api/generate";
+    const apiUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/api/generate`
+        : "/api/generate";
 
     try {
       const response = await fetch(apiUrl, {
@@ -176,9 +179,7 @@ export function WorksheetGenerator() {
       </Card>
 
       {/* Generated Worksheet Display */}
-      {worksheet && (
-        <WorksheetDisplay worksheet={worksheet} />
-      )}
+      { (worksheet || sampleWorksheet) && <WorksheetDisplay worksheet={worksheet || sampleWorksheet} /> }
     </div>
   )
 }
