@@ -8,7 +8,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { LevelSelector } from "./level-selector"
 import { WorksheetDisplay } from "./worksheet-display"
 import { Sparkles, FileText } from "lucide-react"
-import myData from "./pedagogical_data";
+import myData from "./pedagogical_data.json";
 
 // Sample generated content for demo
 const sampleWorksheet = {
@@ -102,7 +102,7 @@ export function WorksheetGenerator() {
       title: localMatch.title,
       level: localMatch.level,
       course: localMatch.course,
-      objectifs: ["مستخرج من قاعدة بيانات مريم"],
+      objectives: ["مستخرج من قاعدة بيانات مريم"],
       exercises: [],
     });
     setIsGenerating(false);
@@ -123,7 +123,7 @@ export function WorksheetGenerator() {
         title: courseName,
         level: selectedLevel,
         course: data.content,
-        objectifs: ["Généré par Intelligence Artificielle"],
+        objectives: ["Généré par Intelligence Artificielle"],
         exercises: [],
       });
     }
