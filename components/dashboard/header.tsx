@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { 
   DropdownMenu,
@@ -22,6 +23,7 @@ import {
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { supabase } from "@/lib/supabase"
 
 const navItems = [
   { title: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
@@ -43,13 +45,49 @@ function getCurrentDate() {
   return `${dayName} ${day} ${month} ${year}`
 }
 
-interface DashboardHeaderProps {
-  teacherName?: string
+function extractNameFromEmail(email: string | null | undefined): string {
+  if (!email) return "Professeur"
+  const localPart = (email.split("@")[0] || "").trim()
+  if (!localPart) return "Professeur"
+  const cleaned = localPart.replace(/[.\-_]+/g, " ")
+  const words = cleaned
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+  return words.length ? words.join(" ") : "Professeur"
 }
 
-export function DashboardHeader({ teacherName = "Prof. Mohammed" }: DashboardHeaderProps) {
+export function DashboardHeader() {
   const pathname = usePathname()
   const currentDate = getCurrentDate()
+  const [displayName, setDisplayName] = useState<string | null>(null)
+  const [isLoadingUser, setIsLoadingUser] = useState(true)
+
+  useEffect(() => {
+    let isMounted = true
+    const loadUser = async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser()
+        if (error) {
+          console.error("[DashboardHeader] getUser error:", error)
+        }
+        const email = data?.user?.email ?? null
+        const nameFromEmail = extractNameFromEmail(email)
+        console.log("[DashboardHeader] extractNameFromEmail:", email, "=>", nameFromEmail)
+        if (isMounted) {
+          setDisplayName(nameFromEmail)
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingUser(false)
+        }
+      }
+    }
+    loadUser()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-border bg-background px-4 lg:px-6">
@@ -98,8 +136,17 @@ export function DashboardHeader({ teacherName = "Prof. Mohammed" }: DashboardHea
 
       {/* User Menu */}
       <div className="flex items-center gap-4">
-        <span className="hidden md:block text-sm text-muted-foreground">
-          Bienvenue, <span className="font-medium text-foreground">{teacherName}</span>
+        <span className="hidden md:block text-sm text-muted-foreground min-w-[180px]">
+          {isLoadingUser ? (
+            <span className="inline-block animate-pulse bg-muted rounded px-4 py-1 h-[20px]" />
+          ) : (
+            <>
+              Bienvenue,{" "}
+              <span className="font-medium text-foreground">
+                {displayName ?? "Professeur"}
+              </span>
+            </>
+          )}
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -108,10 +155,12 @@ export function DashboardHeader({ teacherName = "Prof. Mohammed" }: DashboardHea
               <span className="sr-only">Menu utilisateur</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-56">
             <div className="px-2 py-1.5">
-              <p className="text-sm font-medium text-foreground">{teacherName}</p>
-              <p className="text-xs text-muted-foreground">professeur@mathpro.ma</p>
+              <p className="text-sm font-medium text-foreground">
+                {displayName ?? "Professeur"}
+              </p>
+              {/* Email réel optionnel : peut être récupéré via getUser si besoin */}
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>

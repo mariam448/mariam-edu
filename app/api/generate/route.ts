@@ -18,7 +18,7 @@ Structure obligatoire de la fiche (respecte exactement ces sections avec des tit
 
 Utilise **LaTeX** pour toutes les formules : $$...$$ pour display et $...$ pour inline.`
 
-// Utilise l'API Gemini v1 avec le modèle gemini-1.5-flash (URL exacte demandée).
+// Utilise l'API Gemini v1 avec clé d'API (pas OAuth).
 const GEMINI_MODEL = "gemini-1.5-flash"
 
 async function callGemini(
@@ -26,10 +26,14 @@ async function callGemini(
   model: string,
   text: string
 ): Promise<{ text: string } | { error: string }> {
+  // Authentification par clé d'API dans l'URL (pas de header Authorization).
   const url = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`
   const payload = {
-    prompt: { text },
-    // Optional: set maxOutputTokens or temperature here if desired
+    contents: [
+      {
+        parts: [{ text }],
+      },
+    ],
   }
 
   console.log("[Gemini] Calling model:", model, "URL:", url)
@@ -40,7 +44,6 @@ async function callGemini(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(payload),
     })
