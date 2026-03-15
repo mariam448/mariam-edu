@@ -18,15 +18,15 @@ Structure obligatoire de la fiche (respecte exactement ces sections avec des tit
 
 Utilise **LaTeX** pour toutes les formules : $$...$$ pour display et $...$ pour inline.`
 
-// تم التغيير إلى v1 لضمان الاستقرار
-const GEMINI_API_VERSION = "v1"
+// Utilise l'API Gemini v1 avec le modèle gemini-1.5-flash (URL exacte demandée).
+const GEMINI_MODEL = "gemini-1.5-flash"
 
 async function callGemini(
   apiKey: string,
   model: string,
   text: string
 ): Promise<{ text: string } | { error: string }> {
-  const url = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${model}:generateText`
+  const url = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`
   const payload = {
     prompt: { text },
     // Optional: set maxOutputTokens or temperature here if desired
