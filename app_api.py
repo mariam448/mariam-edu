@@ -8,7 +8,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-API_KEY = "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"
+API_KEY = "AIzaSyDkEoJ4TiPgqBxQ3X_QLlD5de1IqjihI-Y"
 URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
 
 @app.route('/api/generate', methods=['POST'])
