@@ -1,0 +1,16 @@
+[
+  {
+    "code": "MATH101",
+    "title": "Somme des angles d’un triangle",
+    "definitions": ["La somme des angles d’un triangle est 180°."],
+    "activities": ["Mesurer les angles de différents triangles."],
+    "exercises": ["Exercice 1: Calculer l'angle manquant."]
+  },
+  {
+    "code": "MATH102",
+    "title": "Théorème de Pythagore",
+    "definitions": ["Dans un triangle rectangle, a² + b² = c²."],
+    "activities": ["Identifier l’hypoténuse."],
+    "exercises": ["Exercice 1: Calculer la longueur du côté."]
+  }
+]

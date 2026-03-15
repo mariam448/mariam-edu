@@ -89,10 +89,7 @@ export function WorksheetGenerator() {
 
     setIsGenerating(true);
 
-    const apiUrl =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/api/generate`
-        : "/api/generate";
+    const apiUrl = "http://127.0.0.1:5000/api/generate";
 
     try {
       const response = await fetch(apiUrl, {
