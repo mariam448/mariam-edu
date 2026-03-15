@@ -113,22 +113,28 @@ export function WorksheetGenerator() {
       console.error("[WorksheetGenerator] Failed to parse JSON response:", parseError);
     }
 
+    console.log("Status:", response.status)
+    console.log("Data:", data)
+
     if (!response.ok || !data) {
       const message = data?.message || `HTTP ${response.status}`;
       alert(`Erreur API (frontend): ${message}`);
       return;
     }
 
-    if (data.status === "success") {
+    const content = (data?.content ?? "").toString();
+    const status = (data?.status ?? "").toString();
+
+    if (status === "success") {
       setWorksheet({
         title: courseName,
         level: selectedLevel,
-        course: data.content,
+        course: content,
         objectives: ["Généré avec succès par Gemini API"],
         exercises: [],
       });
     } else {
-      alert(`Erreur API (backend): ${data.message || "Inconnue"}`);
+      alert(`Erreur API (backend): ${data?.message || "Inconnue"}`);
     }
   } catch (err) {
     console.error("[WorksheetGenerator] Fetch error:", err);

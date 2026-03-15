@@ -1,8 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 const FICHE_PROMPT = `Tu es un expert en pédagogie et en mathématiques au Maroc. Génère une **Fiche Pédagogique** de haute qualité, en français, pour le cours indiqué et le niveau indiqué.
 
@@ -23,7 +19,7 @@ Structure obligatoire de la fiche (respecte exactement ces sections avec des tit
 Utilise **LaTeX** pour toutes les formules : $$...$$ pour display et $...$ pour inline.`
 
 // تم التغيير إلى v1 لضمان الاستقرار
-const GEMINI_API_VERSION = "v1" 
+const GEMINI_API_VERSION = "v1"
 
 async function callGemini(
   apiKey: string,
@@ -65,12 +61,6 @@ async function callGemini(
   }
 }
 
-// حذفنا الموديلات القديمة التي تسبب 404
-const MODELS_TO_TRY = [
-  "gemini-1.5-flash",
-  "gemini-1.5-pro"
-]
-
 export async function POST(request: NextRequest) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY
   if (!GEMINI_API_KEY) {
@@ -97,41 +87,32 @@ export async function POST(request: NextRequest) {
     const fullPrompt = `${FICHE_PROMPT}\n\n**Cours :** ${lesson}\n**Niveau :** ${level}`
     console.log("[API /api/generate] Built prompt length:", fullPrompt.length)
 
-    let lastError = ""
-    for (const model of MODELS_TO_TRY) {
-      const out = await callGemini(GEMINI_API_KEY, model, fullPrompt)
-      if ("text" in out) {
-        const textContent = out.text
-        console.log(
-          "[API /api/generate] Success with model",
-          model,
-          "content length:",
-          textContent.length
-        )
+    const out = await callGemini(GEMINI_API_KEY, "gemini-1.5-flash", fullPrompt)
+    if ("text" in out) {
+      const textContent = out.text
+      console.log(
+        "[API /api/generate] Success with model",
+        "gemini-1.5-flash",
+        "content length:",
+        textContent.length
+      )
 
-        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-          const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-          const { error: insertError } = await supabase.from("worksheets").insert({
-            title: lesson,
-            level,
-            content: textContent,
-            updated_at: new Date().toISOString(),
-          })
-          if (insertError) {
-            console.error("Supabase insert error:", insertError)
-          }
-        }
-
-        return NextResponse.json({ status: "success", content: textContent })
+      // Supabase persistence disabled by default to help isolate 500 errors.
+      // Enable it by setting ENABLE_SUPABASE=true in your environment.
+      if (process.env.ENABLE_SUPABASE === "true") {
+        console.log("[API /api/generate] Supabase writes enabled")
+      } else {
+        console.log("[API /api/generate] Supabase writes disabled (set ENABLE_SUPABASE=true to enable)")
       }
-      lastError = out.error
-      console.warn("[API /api/generate] Gemini model failed:", model, "error:", lastError)
+
+      return NextResponse.json({ status: "success", content: textContent })
     }
 
+    console.warn("[API /api/generate] Gemini error:", out.error)
     return NextResponse.json(
       {
         status: "error",
-        message: `Erreur: ${lastError}`,
+        message: `Gemini error: ${out.error}`,
       },
       { status: 500 }
     )

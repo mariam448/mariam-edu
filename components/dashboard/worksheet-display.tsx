@@ -26,10 +26,13 @@ interface WorksheetDisplayProps {
 // Simple LaTeX renderer component
 function LatexContent({ content }: { content: string }) {
   const [mounted, setMounted] = useState(false)
+  const shouldRenderMath = typeof content === "string" && content.includes("$")
 
   useEffect(() => {
     setMounted(true)
     // Load KaTeX if not already loaded
+    if (!shouldRenderMath) return
+
     if (typeof window !== "undefined" && !document.getElementById("katex-css")) {
       const link = document.createElement("link")
       link.id = "katex-css"
@@ -60,20 +63,26 @@ function LatexContent({ content }: { content: string }) {
   }, [])
 
   useEffect(() => {
+    if (!shouldRenderMath) return
     if (mounted && typeof window !== "undefined") {
       const timer = setTimeout(() => {
-        if ((window as unknown as { renderMathInElement?: (el: Element, opts: object) => void }).renderMathInElement) {
-          (window as unknown as { renderMathInElement: (el: Element, opts: object) => void }).renderMathInElement(document.body, {
-            delimiters: [
-              { left: "$$", right: "$$", display: true },
-              { left: "$", right: "$", display: false },
-            ],
-          })
+        try {
+          const renderFn = (window as unknown as { renderMathInElement?: (el: Element, opts: object) => void }).renderMathInElement
+          if (renderFn) {
+            renderFn(document.body, {
+              delimiters: [
+                { left: "$$", right: "$$", display: true },
+                { left: "$", right: "$", display: false },
+              ],
+            })
+          }
+        } catch (error) {
+          console.warn("[LatexContent] KaTeX render error:", error)
         }
       }, 100)
       return () => clearTimeout(timer)
     }
-  }, [mounted, content])
+  }, [mounted, content, shouldRenderMath])
 
   // Process markdown-like formatting
   const processContent = (text: string) => {
