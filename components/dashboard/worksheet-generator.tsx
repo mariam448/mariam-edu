@@ -85,50 +85,37 @@ export function WorksheetGenerator() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [worksheet, setWorksheet] = useState<typeof sampleWorksheet | null>(null)
 
-  const handleGenerate = async () => {
+ const handleGenerate = async () => {
   if (!selectedLevel || !courseName.trim()) return;
   setIsGenerating(true);
 
-  // 2. البحث في الـ Data الخاصة بكِ أولاً
-  const localMatch = myData.find(
-    (item) => 
-      item.title.toLowerCase().includes(courseName.toLowerCase()) && 
-      item.level === selectedLevel
-  );
-
-  if (localMatch) {
-    // إذا وجد درساً مطابقاً في ملفكِ، يعرضه فوراً
-    setWorksheet({
-      title: localMatch.title,
-      level: localMatch.level,
-      course: localMatch.course,
-      objectives: ["مستخرج من قاعدة بيانات مريم"],
-      exercises: [],
-    });
-    setIsGenerating(false);
-    return; // يتوقف هنا ولا يتصل بالـ API
-  }
-
-  // 3. إذا لم يجد الدرس في ملفكِ، يتصل بـ Google Gemini (الـ API)
   try {
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lesson: courseName, level: selectedLevel }),
+      body: JSON.stringify({
+        lesson: courseName,
+        level: selectedLevel,
+      }),
     });
-    
+
     const data = await response.json();
+
     if (data.status === "success") {
+      // إذا نجح الـ API، سيتم تحديث الواجهة
       setWorksheet({
         title: courseName,
         level: selectedLevel,
         course: data.content,
-        objectives: ["Généré par Intelligence Artificielle"],
+        objectives: ["Généré avec succès par Gemini API"],
         exercises: [],
       });
+    } else {
+      // سيظهر لكِ تنبيه بالخطأ القادم من السيرفر
+      alert("خطأ من الـ API: " + data.message);
     }
   } catch (err) {
-    alert("Erreur de connexion");
+    alert("فشل الاتصال بالسيرفر. تأكدي من أن الموقع مرفوع على Vercel.");
   } finally {
     setIsGenerating(false);
   }
