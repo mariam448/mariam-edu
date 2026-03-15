@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { LevelSelector } from "./level-selector"
 import { WorksheetDisplay } from "./worksheet-display"
 import { Sparkles, FileText } from "lucide-react"
+import myData from "./pedagogical_data";
 
 // Sample generated content for demo
 const sampleWorksheet = {
@@ -85,45 +86,53 @@ export function WorksheetGenerator() {
   const [worksheet, setWorksheet] = useState<typeof sampleWorksheet | null>(null)
 
   const handleGenerate = async () => {
-    if (!selectedLevel || !courseName.trim()) return;
+  if (!selectedLevel || !courseName.trim()) return;
+  setIsGenerating(true);
 
-    setIsGenerating(true);
+  // 2. البحث في الـ Data الخاصة بكِ أولاً
+  const localMatch = myData.find(
+    (item) => 
+      item.title.toLowerCase().includes(courseName.toLowerCase()) && 
+      item.level === selectedLevel
+  );
 
-    const apiUrl =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/api/generate`
-        : "/api/generate";
+  if (localMatch) {
+    // إذا وجد درساً مطابقاً في ملفكِ، يعرضه فوراً
+    setWorksheet({
+      title: localMatch.title,
+      level: localMatch.level,
+      course: localMatch.course,
+      objectifs: ["مستخرج من قاعدة بيانات مريم"],
+      exercises: [],
+    });
+    setIsGenerating(false);
+    return; // يتوقف هنا ولا يتصل بالـ API
+  }
 
-    try {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lesson: courseName,
-          level: selectedLevel,
-        }),
+  // 3. إذا لم يجد الدرس في ملفكِ، يتصل بـ Google Gemini (الـ API)
+  try {
+    const response = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lesson: courseName, level: selectedLevel }),
+    });
+    
+    const data = await response.json();
+    if (data.status === "success") {
+      setWorksheet({
+        title: courseName,
+        level: selectedLevel,
+        course: data.content,
+        objectifs: ["Généré par Intelligence Artificielle"],
+        exercises: [],
       });
-
-      const data = await response.json();
-
-      if (data.status === "success") {
-        setWorksheet({
-          title: courseName,
-          level: selectedLevel,
-          course: data.content,
-          objectives: ["Généré par Intelligence Artificielle"],
-          exercises: [],
-        });
-      } else {
-        alert("Erreur de l'IA: " + (data.message ?? "Erreur inconnue"));
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Erreur de connexion. Vérifiez votre réseau ou réessayez.");
-    } finally {
-      setIsGenerating(false);
     }
-  };
+  } catch (err) {
+    alert("Erreur de connexion");
+  } finally {
+    setIsGenerating(false);
+  }
+};
   return (
     <div className="space-y-6">
       {/* Level Selector */}
