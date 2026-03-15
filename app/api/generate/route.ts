@@ -26,7 +26,7 @@ async function callGemini(
   model: string,
   text: string
 ): Promise<{ text: string } | { error: string }> {
-  const url = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${model}:generateText?key=${apiKey}`
+  const url = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${model}:generateText`
   const payload = {
     prompt: { text },
     // Optional: set maxOutputTokens or temperature here if desired
@@ -38,11 +38,24 @@ async function callGemini(
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
       body: JSON.stringify(payload),
     })
 
-    const result = await res.json()
+    const rawText = await res.text()
+    let result: any
+
+    try {
+      result = JSON.parse(rawText)
+    } catch (parseErr) {
+      console.error("[Gemini] Failed to parse JSON response:", parseErr)
+      console.error("[Gemini] Raw response:", rawText)
+      return { error: `Invalid JSON response (status ${res.status})` }
+    }
+
     console.log(
       "[Gemini] Raw response for model",
       model,
@@ -62,9 +75,10 @@ async function callGemini(
     const apiMessage =
       result?.error?.message || result?.error || `Error ${res.status}`
     return { error: apiMessage }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("[Gemini] Network or server error:", err)
-    return { error: "Network or Server Error" }
+    const message = err instanceof Error ? err.message : String(err)
+    return { error: `Network or Server Error: ${message}` }
   }
 }
 
