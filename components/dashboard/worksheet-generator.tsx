@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,7 +8,21 @@ import { Spinner } from "@/components/ui/spinner"
 import { LevelSelector } from "./level-selector"
 import { WorksheetDisplay } from "./worksheet-display"
 import { Sparkles, FileText } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import myData from "./pedagogical_data.json";
+
+// Définition des cours par niveau
+const coursesByLevel: Record<string, string[]> = {
+  "1AC": ["Les équations", "Nombres décimaux"],
+  "2AC": ["Équations et inéquations", "Triangle rectangle"],
+  "3AC": ["Théorème de Thalès", "Théorème de Pythagore"],
+};
 
 // Sample generated content for demo
 const sampleWorksheet = {
@@ -85,8 +99,16 @@ export function WorksheetGenerator() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [worksheet, setWorksheet] = useState<typeof sampleWorksheet | null>(null)
 
+  // Liste des cours disponibles basée sur le niveau sélectionné
+  const availableCourses = selectedLevel ? coursesByLevel[selectedLevel] || [] : []
+
+  // Réinitialiser le cours sélectionné quand le niveau change
+  useEffect(() => {
+    setCourseName("")
+  }, [selectedLevel])
+
  const handleGenerate = async () => {
-  if (!selectedLevel || !courseName.trim()) return;
+  if (!selectedLevel || !courseName) return;
   setIsGenerating(true);
 
   const payload = {
@@ -168,17 +190,26 @@ export function WorksheetGenerator() {
             <label htmlFor="courseName" className="text-sm font-medium text-foreground">
               Nom du cours
             </label>
-            <Input
-              id="courseName"
-              placeholder="Ex: Les équations du premier degré"
+            <Select
+              disabled={!selectedLevel}
               value={courseName}
-              onChange={(e) => setCourseName(e.target.value)}
-              className="bg-background border-border"
-            />
+              onValueChange={setCourseName}
+            >
+              <SelectTrigger className="bg-background border-border">
+                <SelectValue placeholder="Sélectionnez un cours" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableCourses.map((course) => (
+                  <SelectItem key={course} value={course}>
+                    {course}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <Button
             onClick={handleGenerate}
-            disabled={!selectedLevel || !courseName.trim() || isGenerating}
+            disabled={!selectedLevel || !courseName || isGenerating}
             className="w-full bg-gradient-to-r from-primary to-secondary text-primary-foreground hover:opacity-90 disabled:opacity-50 gap-2"
             size="lg"
           >

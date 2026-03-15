@@ -49,12 +49,15 @@ function extractNameFromEmail(email: string | null | undefined): string {
   if (!email) return "Professeur"
   const localPart = (email.split("@")[0] || "").trim()
   if (!localPart) return "Professeur"
-  const cleaned = localPart.replace(/[.\-_]+/g, " ")
-  const words = cleaned
+  // Remplace les points par des espaces et ne garde que le premier mot (prénom)
+  const cleaned = localPart.replace(/[.]+/g, " ")
+  const firstWord = cleaned
     .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-  return words.length ? words.join(" ") : "Professeur"
+    .filter(Boolean)[0]
+
+  if (!firstWord) return "Professeur"
+
+  return firstWord.charAt(0).toUpperCase() + firstWord.slice(1).toLowerCase()
 }
 
 export function DashboardHeader() {
@@ -143,7 +146,7 @@ export function DashboardHeader() {
             <>
               Bienvenue,{" "}
               <span className="font-medium text-foreground">
-                {displayName ?? "Professeur"}
+                {displayName ? `Prof. ${displayName}` : "Professeur"}
               </span>
             </>
           )}
@@ -158,7 +161,7 @@ export function DashboardHeader() {
             <DropdownMenuContent align="end" className="w-56">
             <div className="px-2 py-1.5">
               <p className="text-sm font-medium text-foreground">
-                {displayName ?? "Professeur"}
+                {displayName ? `Prof. ${displayName}` : "Professeur"}
               </p>
               {/* Email réel optionnel : peut être récupéré via getUser si besoin */}
             </div>
