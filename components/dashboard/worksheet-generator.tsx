@@ -90,42 +90,45 @@ export function WorksheetGenerator() {
   setIsGenerating(true);
 
   // 2. البحث في الـ Data الخاصة بكِ أولاً
-  const handleGenerate = async () => {
-  if (!selectedLevel || !courseName.trim()) return;
-  setIsGenerating(true);
+  const localMatch = myData.find(
+    (item) => 
+      item.title.toLowerCase().includes(courseName.toLowerCase()) && 
+      item.level === selectedLevel
+  );
 
+  if (localMatch) {
+    // إذا وجد درساً مطابقاً في ملفكِ، يعرضه فوراً
+    setWorksheet({
+      title: localMatch.title,
+      level: localMatch.level,
+      course: localMatch.course,
+      objectives: ["مستخرج من قاعدة بيانات مريم"],
+      exercises: [],
+    });
+    setIsGenerating(false);
+    return; // يتوقف هنا ولا يتصل بالـ API
+  }
+
+  // 3. إذا لم يجد الدرس في ملفكِ، يتصل بـ Google Gemini (الـ API)
   try {
-    console.log("إرسال طلب لـ API..."); // سيظهر في الـ Console
-    
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lesson: courseName, level: selectedLevel }),
     });
-
-    console.log("حالة الاستجابة:", response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      alert("السيرفر رفض الطلب! الحالة: " + response.status + "\nالسبب: " + errorText);
-      setIsGenerating(false);
-      return;
-    }
-
+    
     const data = await response.json();
     if (data.status === "success") {
       setWorksheet({
         title: courseName,
         level: selectedLevel,
         course: data.content,
-        objectives: ["توليد ذكي"],
+        objectives: ["Généré par Intelligence Artificielle"],
         exercises: [],
       });
-    } else {
-      alert("خطأ من الذكاء الاصطناعي: " + data.message);
     }
   } catch (err) {
-    alert("فشل الاتصال تماماً! تأكدي من الإنترنت أو مسار الـ API.\nالخطأ: " + err);
+    alert("Erreur de connexion");
   } finally {
     setIsGenerating(false);
   }
@@ -188,4 +191,4 @@ export function WorksheetGenerator() {
       { (worksheet || sampleWorksheet) && <WorksheetDisplay worksheet={worksheet || sampleWorksheet} /> }
     </div>
   )
-  }}
+}
