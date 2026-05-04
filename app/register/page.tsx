@@ -10,23 +10,14 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { getSupabase } from "@/lib/supabase"
 
-function extractNameFromEmail(email: string): string {
-  const localPart = (email.split("@")[0] || "").trim()
-  if (!localPart) return "Utilisateur"
-
-  const cleaned = localPart.replace(/[.\-_]+/g, " ")
-  const words = cleaned
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-
-  return words.length ? words.join(" ") : "Utilisateur"
-}
-
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
+  const [school, setSchool] = useState("")
+  const [level, setLevel] = useState("")
   const [password, setPassword] = useState("")
   const router = useRouter()
 
@@ -34,9 +25,27 @@ export default function RegisterPage() {
     e.preventDefault()
     setIsLoading(true)
 
+    const trimmedFirst = firstName.trim()
+    const trimmedLast = lastName.trim()
+    const trimmedSchool = school.trim()
+
+    if (!trimmedFirst || !trimmedLast || !trimmedSchool || !level) {
+      alert("Veuillez remplir le prénom, le nom, l'établissement et le niveau enseigné.")
+      setIsLoading(false)
+      return
+    }
+
+    const fullName = `${trimmedFirst} ${trimmedLast}`.trim()
+
     try {
-      const fullName = extractNameFromEmail(email)
-      console.log("[Register] extractNameFromEmail:", email, "=>", fullName)
+      console.log("[Register] Données formulaire:", {
+        firstName: trimmedFirst,
+        lastName: trimmedLast,
+        full_name: fullName,
+        email,
+        school: trimmedSchool,
+        level,
+      })
 
       let supabase
       try {
@@ -69,20 +78,31 @@ export default function RegisterPage() {
 
       const user = data?.user
       if (user) {
-        // Upsert dans la table profiles (évite les doublons si le profil existe déjà)
+        /**
+         * Required `public.profiles` columns for this upsert (run SQL in Supabase if missing):
+         * - id uuid PK → auth.users.id
+         * - first_name, last_name, full_name, email, school, level, updated_at
+         */
+        const profileRow = {
+          id: user.id,
+          first_name: trimmedFirst,
+          last_name: trimmedLast,
+          full_name: fullName,
+          email: email.trim(),
+          school: trimmedSchool,
+          level,
+          updated_at: new Date().toISOString(),
+        }
+
         const { error: profileError } = await supabase
           .from("profiles")
-          .upsert(
-            {
-              id: user.id,
-              full_name: fullName,
-              email,
-            },
-            { onConflict: "id" }
-          )
+          .upsert(profileRow, { onConflict: "id" })
 
         if (profileError) {
-          console.error("[Register] Supabase profiles upsert error:", profileError)
+          console.error(
+            "[Register] Supabase profiles upsert error details:",
+            JSON.stringify(profileError, null, 2)
+          )
         }
       }
 
@@ -133,6 +153,8 @@ export default function RegisterPage() {
                     placeholder="Mohammed"
                     required
                     className="bg-background border-border"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -144,6 +166,8 @@ export default function RegisterPage() {
                     placeholder="El Alaoui"
                     required
                     className="bg-background border-border"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
                   />
                 </div>
               </div>
@@ -170,14 +194,16 @@ export default function RegisterPage() {
                   placeholder="Collège Ibn Rochd"
                   required
                   className="bg-background border-border"
+                  value={school}
+                  onChange={(e) => setSchool(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
                 <label htmlFor="level" className="text-sm font-medium text-foreground">
                   Niveaux enseignés
                 </label>
-                <Select>
-                  <SelectTrigger className="bg-background border-border">
+                <Select value={level} onValueChange={setLevel} required>
+                  <SelectTrigger id="level" className="bg-background border-border">
                     <SelectValue placeholder="Sélectionnez les niveaux" />
                   </SelectTrigger>
                   <SelectContent>
@@ -242,10 +268,13 @@ export default function RegisterPage() {
               </Button>
             </form>
             <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Déjà inscrit ?{" "}
-                <Link href="/login" className="text-primary hover:underline font-medium">
-                  Se connecter
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Vous avez déjà un compte ?{" "}
+                <Link
+                  href="/login"
+                  className="font-medium text-primary hover:underline underline-offset-4"
+                >
+                  Connectez-vous ici
                 </Link>
               </p>
             </div>
