@@ -21,7 +21,7 @@ import {
   GraduationCap
 } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { getSupabase } from "@/lib/supabase"
 
@@ -62,6 +62,7 @@ function extractNameFromEmail(email: string | null | undefined): string {
 
 export function DashboardHeader() {
   const pathname = usePathname()
+  const router = useRouter()
   const currentDate = getCurrentDate()
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [isLoadingUser, setIsLoadingUser] = useState(true)
@@ -71,18 +72,40 @@ export function DashboardHeader() {
     const loadUser = async () => {
       try {
         const supabase = getSupabase()
-        const { data, error } = await supabase.auth.getUser()
-        if (error) {
-          console.error("[DashboardHeader] getUser error:", error)
+        // Prefer getSession first — avoids AuthSessionMissingError before cookies are hydrated
+        const { data: sessionData, error: sessionError } =
+          await supabase.auth.getSession()
+        if (sessionError) {
+          console.error("[DashboardHeader] getSession error:", sessionError)
         }
-        const email = data?.user?.email ?? null
+        if (!sessionData?.session?.user) {
+          router.replace("/login")
+          return
+        }
+
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
+        if (userError) {
+          console.error("[DashboardHeader] getUser error:", userError)
+          router.replace("/login")
+          return
+        }
+        if (!user) {
+          router.replace("/login")
+          return
+        }
+
+        const email = user.email ?? null
         const nameFromEmail = extractNameFromEmail(email)
         console.log("[DashboardHeader] extractNameFromEmail:", email, "=>", nameFromEmail)
         if (isMounted) {
           setDisplayName(nameFromEmail)
         }
       } catch (e) {
-        console.error("[DashboardHeader] getUser / Supabase init:", e)
+        console.error("[DashboardHeader] auth / Supabase init:", e)
+        router.replace("/login")
       } finally {
         if (isMounted) {
           setIsLoadingUser(false)
@@ -93,7 +116,7 @@ export function DashboardHeader() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [router])
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-border bg-background px-4 lg:px-6">
@@ -169,11 +192,22 @@ export function DashboardHeader() {
               {/* Email réel optionnel : peut être récupéré via getUser si besoin */}
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/" className="flex items-center gap-2 text-destructive cursor-pointer">
-                <LogOut className="h-4 w-4" />
-                Déconnexion
-              </Link>
+            <DropdownMenuItem
+              className="flex cursor-pointer items-center gap-2 text-destructive focus:text-destructive"
+              onSelect={async (e) => {
+                e.preventDefault()
+                try {
+                  const supabase = getSupabase()
+                  await supabase.auth.signOut()
+                } catch (err) {
+                  console.error("[DashboardHeader] signOut:", err)
+                }
+                router.replace("/login")
+                router.refresh()
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              Déconnexion
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
