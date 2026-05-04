@@ -1,5 +1,5 @@
-import { getSupabase } from "@/lib/supabase"
-import type { WorksheetRow } from "@/lib/supabase"
+import { getSupabase } from "@/lib/supabase/client"
+import type { WorksheetRow } from "@/lib/supabase/client"
 
 /** À utiliser uniquement côté client (navigateur). */
 export async function saveWorksheet(row: {

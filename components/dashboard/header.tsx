@@ -23,7 +23,7 @@ import {
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { getSupabase } from "@/lib/supabase"
+import { getSupabase } from "@/lib/supabase/client"
 
 const navItems = [
   { title: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },

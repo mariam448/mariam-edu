@@ -1,7 +1,12 @@
 /**
- * Supabase clients:
- * - Browser: import { getSupabase } from "@/lib/supabase" or "@/lib/supabase/client"
- * - Server: import { createClient } from "@/lib/supabase/server"
+ * Client-only entry — does not re-export `@/lib/supabase/server` so importing from here
+ * never pulls `next/headers` into Client Component bundles.
+ *
+ * Server: `import { createClient } from "@/lib/supabase/server"`
  */
-export { getSupabase, supabase, type WorksheetRow } from "./supabase/client"
-export { createClient } from "./supabase/server"
+export {
+  getSupabase,
+  createClient,
+  supabase,
+  type WorksheetRow,
+} from "./supabase/client"

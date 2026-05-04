@@ -47,6 +47,15 @@ export function getSupabase(): SupabaseClient {
   return browserClient
 }
 
+/**
+ * Browser-only Supabase client (`createBrowserClient`).
+ * Use in `"use client"` components only.
+ * For Server Components / Route Handlers, import `createClient` from `@/lib/supabase/server`.
+ */
+export function createClient(): SupabaseClient {
+  return getSupabase()
+}
+
 /** @deprecated Préférez getSupabase() — délègue au client navigateur (navigateur uniquement). */
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_target, prop, receiver) {
