@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { GraduationCap, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
+import { getSupabase } from "@/lib/supabase"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -21,17 +21,46 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
+      let supabase
+      try {
+        supabase = getSupabase()
+      } catch (configErr) {
+        alert(
+          configErr instanceof Error
+            ? configErr.message
+            : "Configuration Supabase invalide."
+        )
+        return
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (error) {
-        alert(error.message)
+        const msg = error.message
+        if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+          alert(
+            "Connexion à Supabase impossible (réseau ou configuration). Vérifiez NEXT_PUBLIC_SUPABASE_URL, la clé anon, et le fichier .env.local, puis redémarrez le serveur de développement."
+          )
+        } else {
+          alert(msg)
+        }
         return
       }
 
       router.push("/dashboard")
+    } catch (err) {
+      console.error("[Login] signInWithPassword", err)
+      const msg = err instanceof Error ? err.message : String(err)
+      if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+        alert(
+          "Échec réseau vers Supabase. Vérifiez l’URL du projet, le pare-feu, et que les variables NEXT_PUBLIC_SUPABASE_* sont chargées (redémarrage de `next dev` requis après .env.local)."
+        )
+      } else {
+        alert(msg)
+      }
     } finally {
       setIsLoading(false)
     }

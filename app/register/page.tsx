@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { GraduationCap, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
+import { getSupabase } from "@/lib/supabase"
 
 function extractNameFromEmail(email: string): string {
   const localPart = (email.split("@")[0] || "").trim()
@@ -38,14 +38,32 @@ export default function RegisterPage() {
       const fullName = extractNameFromEmail(email)
       console.log("[Register] extractNameFromEmail:", email, "=>", fullName)
 
+      let supabase
+      try {
+        supabase = getSupabase()
+      } catch (configErr) {
+        alert(
+          configErr instanceof Error
+            ? configErr.message
+            : "Configuration Supabase invalide."
+        )
+        return
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
       })
 
       if (error) {
-        // Si l'utilisateur existe déjà, on ne crée pas de doublon, on s'arrête avec un message clair.
-        alert(error.message)
+        const msg = error.message
+        if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+          alert(
+            "Connexion à Supabase impossible. Vérifiez les variables d’environnement et redémarrez le serveur de dev."
+          )
+        } else {
+          alert(msg)
+        }
         return
       }
 
@@ -69,6 +87,14 @@ export default function RegisterPage() {
       }
 
       router.push("/dashboard")
+    } catch (err) {
+      console.error("[Register] signUp", err)
+      const msg = err instanceof Error ? err.message : String(err)
+      alert(
+        /failed to fetch|networkerror|load failed/i.test(msg)
+          ? "Échec réseau vers Supabase. Vérifiez .env.local et l’URL du projet."
+          : msg
+      )
     } finally {
       setIsLoading(false)
     }

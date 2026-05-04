@@ -1,11 +1,13 @@
-import { supabase } from "@/lib/supabase"
+import { getSupabase } from "@/lib/supabase"
 import type { WorksheetRow } from "@/lib/supabase"
 
+/** À utiliser uniquement côté client (navigateur). */
 export async function saveWorksheet(row: {
   title: string
   level: string
   content: string
 }) {
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from("worksheets")
     .insert({
@@ -22,6 +24,7 @@ export async function saveWorksheet(row: {
 }
 
 export async function listWorksheets(limit = 50) {
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from("worksheets")
     .select("id, title, level, content, created_at, updated_at")
@@ -33,6 +36,7 @@ export async function listWorksheets(limit = 50) {
 }
 
 export async function getWorksheet(id: string) {
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from("worksheets")
     .select("*")

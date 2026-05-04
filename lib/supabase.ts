@@ -1,31 +1,5 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
-
-// Vérifie le chargement des variables (sans exposer la clé anon).
-const urlDefined = Boolean(supabaseUrl)
-let supabaseHost = "n/a"
-if (urlDefined) {
-  try {
-    supabaseHost = new URL(supabaseUrl).hostname
-  } catch {
-    supabaseHost = "invalid-url"
-  }
-}
-console.log(
-  "[Supabase env] NEXT_PUBLIC_SUPABASE_URL:",
-  urlDefined ? `defined (host: ${supabaseHost})` : "undefined or empty"
-)
-console.log(
-  "[Supabase env] NEXT_PUBLIC_SUPABASE_ANON_KEY:",
-  supabaseAnonKey ? "defined (value hidden)" : "undefined or empty"
-)
-
-export const supabase: SupabaseClient =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : (null as unknown as SupabaseClient)
+import { createBrowserClient } from "@supabase/ssr"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 export type WorksheetRow = {
   id?: string
@@ -34,4 +8,79 @@ export type WorksheetRow = {
   content: string
   created_at?: string
   updated_at?: string
+}
+
+function readEnv() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? ""
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? ""
+  return { url, anonKey }
+}
+
+let browserClient: SupabaseClient | undefined
+
+/**
+ * Client Supabase pour le navigateur uniquement (composants "use client").
+ * Utilise @supabase/ssr (createBrowserClient) pour une auth compatible Next.js App Router.
+ */
+export function getSupabase(): SupabaseClient {
+  const { url, anonKey } = readEnv()
+
+  if (!url || !anonKey) {
+    const msg =
+      "Configuration Supabase manquante : ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY dans .env.local, puis redémarrez le serveur de dev (ou redéployez sur Vercel)."
+    if (typeof window !== "undefined") {
+      console.error("[Supabase]", msg)
+    }
+    throw new Error(msg)
+  }
+
+  if (typeof window === "undefined") {
+    throw new Error(
+      "Le client Supabase navigateur ne peut pas être utilisé côté serveur. Appelez getSupabase() uniquement depuis un composant client ou une action utilisateur."
+    )
+  }
+
+  if (!/^https:\/\//i.test(url)) {
+    console.warn(
+      "[Supabase] NEXT_PUBLIC_SUPABASE_URL devrait commencer par https://"
+    )
+  }
+
+  if (!browserClient) {
+    browserClient = createBrowserClient(url, anonKey)
+  }
+
+  return browserClient
+}
+
+/**
+ * Alias lazy pour les anciens imports ; préférez getSupabase().
+ * N’accéder à ses propriétés que dans le navigateur (sinon erreur explicite).
+ */
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop, receiver) {
+    const client = getSupabase()
+    const value = Reflect.get(client, prop, receiver)
+    return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(client) : value
+  },
+})
+
+if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+  const { url, anonKey } = readEnv()
+  let host = "n/a"
+  if (url) {
+    try {
+      host = new URL(url).hostname
+    } catch {
+      host = "invalid-url"
+    }
+  }
+  console.log(
+    "[Supabase env] NEXT_PUBLIC_SUPABASE_URL:",
+    url ? `defined (host: ${host})` : "undefined or empty"
+  )
+  console.log(
+    "[Supabase env] NEXT_PUBLIC_SUPABASE_ANON_KEY:",
+    anonKey ? "defined (hidden)" : "undefined or empty"
+  )
 }

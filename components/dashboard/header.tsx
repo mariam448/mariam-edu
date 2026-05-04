@@ -23,7 +23,7 @@ import {
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { supabase } from "@/lib/supabase"
+import { getSupabase } from "@/lib/supabase"
 
 const navItems = [
   { title: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
@@ -70,6 +70,7 @@ export function DashboardHeader() {
     let isMounted = true
     const loadUser = async () => {
       try {
+        const supabase = getSupabase()
         const { data, error } = await supabase.auth.getUser()
         if (error) {
           console.error("[DashboardHeader] getUser error:", error)
@@ -80,6 +81,8 @@ export function DashboardHeader() {
         if (isMounted) {
           setDisplayName(nameFromEmail)
         }
+      } catch (e) {
+        console.error("[DashboardHeader] getUser / Supabase init:", e)
       } finally {
         if (isMounted) {
           setIsLoadingUser(false)
